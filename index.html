@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Marble Lab — a MIKAN-style physics simulator</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🟠 <b>Marble Lab</b> <span class="tag">physics playground</span></div>
+    <div class="top-actions">
+      <button id="helpBtn" class="ghost">❓ How to use</button>
+      <button id="fs" class="ghost">⛶ Fullscreen</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- LEFT: controls -->
+    <aside class="panel">
+      <section class="group">
+        <h3>1 · Pick a level</h3>
+        <div id="levels" class="levels"></div>
+      </section>
+
+      <section class="group">
+        <h3>2 · Play</h3>
+        <div class="transport">
+          <button id="play" class="big play">▶ Play</button>
+          <button id="pause" class="big">⏸ Pause</button>
+          <button id="reset" class="big">↻ Reset</button>
+        </div>
+        <p class="hint">Tip: press <b>Space</b> to start, <b>R</b> to reset.</p>
+      </section>
+
+      <section class="group">
+        <h3>3 · Tune the physics 🔬</h3>
+        <label class="slider">Gravity <span id="gravityVal"></span>
+          <input id="gravity" type="range" min="200" max="4000" step="50" value="2000" />
+        </label>
+        <label class="slider">Bounciness <span id="bounceVal"></span>
+          <input id="bounce" type="range" min="0" max="0.95" step="0.05" value="0.4" />
+        </label>
+        <label class="slider">Friction (grip) <span id="frictionVal"></span>
+          <input id="friction" type="range" min="0" max="1" step="0.05" value="0.2" />
+        </label>
+        <label class="slider">Speed <span id="speedVal"></span>
+          <input id="speed" type="range" min="0.25" max="2" step="0.05" value="1" />
+        </label>
+        <label class="slider" id="lavaRow">Lava speed <span id="lavaVal"></span>
+          <input id="lava" type="range" min="5" max="80" step="1" value="22" />
+        </label>
+      </section>
+
+      <section class="group">
+        <h3>4 · Build your own 🛠️</h3>
+        <div class="tools">
+          <button id="tool-none" class="tool active" title="Just play, no building">👆 Select</button>
+          <button id="tool-wall" class="tool" title="Drag to draw a wall">➖ Wall</button>
+          <button id="tool-ramp" class="tool" title="Drag to draw a ramp">📐 Ramp</button>
+          <button id="tool-spinner" class="tool" title="Drag to make a spinning bar">🌀 Spinner</button>
+          <button id="tool-marble" class="tool" title="Click to drop a marble">⚪ Marble</button>
+          <button id="tool-finish" class="tool" title="Drag to draw the finish line">🏁 Finish</button>
+          <button id="tool-lava" class="tool" title="Turn rising lava on/off">🌋 Lava</button>
+          <button id="tool-erase" class="tool" title="Click to erase">🧽 Erase</button>
+        </div>
+        <button id="clearAll" class="ghost wide">🗑️ Clear everything</button>
+        <p class="hint">Drag on the play area to draw. Your build survives Reset ↻.</p>
+      </section>
+
+      <section class="group">
+        <h3>5 · Look & feel 🎬</h3>
+        <div class="toggles">
+          <button id="tTrails" class="toggle on">✨ Trails</button>
+          <button id="tNames" class="toggle on">🏷️ Names</button>
+          <button id="tBoard" class="toggle on">🏆 Leaderboard</button>
+          <button id="tMute" class="toggle">🔇 Mute</button>
+        </div>
+      </section>
+    </aside>
+
+    <!-- RIGHT: stage -->
+    <section class="stage-area">
+      <div class="stage-head">
+        <span id="levelTitle" class="lv">Marble Lab</span>
+        <span id="blurb" class="lv-blurb"></span>
+      </div>
+      <div id="stageWrap" class="stage-wrap">
+        <canvas id="stage"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <!-- HELP -->
+  <div id="help" class="modal">
+    <div class="modal-box">
+      <button id="helpClose" class="modal-close">✖</button>
+      <h2>🟠 Welcome to Marble Lab!</h2>
+      <p>This is a physics playground inspired by the YouTuber <b>MIKAN</b>, who makes
+      marble-race and survival videos. Marbles can't drive themselves — they only move
+      because of <b>gravity</b>, <b>bouncing</b>, and <b>friction</b>, just like real life.</p>
+
+      <h3>Quick start</h3>
+      <ol>
+        <li><b>Pick a level</b> on the left.</li>
+        <li>Press <b>▶ Play</b> (or the Space bar). Watch the 3-2-1 countdown, then GO!</li>
+        <li>Press <b>↻ Reset</b> to run it again — physics is a little different every time.</li>
+      </ol>
+
+      <h3>The three game modes</h3>
+      <ul>
+        <li>🏁 <b>Race</b> — first marble across the green finish line wins.</li>
+        <li>🌋 <b>Survival</b> — lava rises from the bottom; the last marble alive wins.</li>
+        <li>🏆 <b>Elimination</b> — every few seconds the marble in last place is out.</li>
+      </ul>
+
+      <h3>Be a scientist 🔬</h3>
+      <p>Use the sliders to run experiments. Make a prediction first!
+      <i>“If I turn gravity down, will the marbles bounce higher or lower? Will the race take longer?”</i>
+      Then test it. Try bounciness at 0 vs 0.9, or friction at 0 (ice!) vs 1 (sticky).</p>
+
+      <h3>Build your own 🛠️</h3>
+      <p>Pick a build tool, then <b>drag</b> on the play area to draw walls, ramps,
+      spinners and the finish line, or <b>click</b> to drop marbles or toggle lava.
+      Use <b>Erase</b> to remove one thing, or <b>Clear everything</b> to start blank.</p>
+
+      <h3>Make a video like MIKAN 🎥</h3>
+      <ol>
+        <li>Press <b>⛶ Fullscreen</b> for a clean, big picture.</li>
+        <li>Turn on <b>Trails</b> and <b>Leaderboard</b> for that satisfying look.</li>
+        <li>Screen-record your computer:
+          <b>Windows</b> = Win+G (Game Bar), <b>Mac</b> = Shift+Cmd+5.</li>
+        <li>Press Play, let the marbles race, and stop recording at the winner banner!</li>
+      </ol>
+      <button id="helpClose2" class="big play" onclick="document.getElementById('help').classList.remove('show')">Let's go! 🚀</button>
+    </div>
+  </div>
+
+  <!-- scripts (plain files so it works by just opening index.html) -->
+  <script src="js/physics.js"></script>
+  <script src="js/content.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

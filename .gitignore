@@ -1,0 +1,6 @@
+# Nothing here is needed to run Marble Lab — just open index.html.
+# These are only created if you run the optional headless tests.
+node_modules/
+scratch-*
+*.log
+.DS_Store
