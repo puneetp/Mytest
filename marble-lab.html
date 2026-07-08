@@ -1,0 +1,1793 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <!-- lets it run like a full-screen app when "Added to Home Screen" on iPad -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Marble Lab" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>Marble Lab — a MIKAN-style physics simulator</title>
+  <style>
+/* Marble Lab — kid-friendly, high-contrast, works in light & dark rooms. */
+:root {
+  --bg: #0b1020;
+  --panel: #141b30;
+  --panel2: #1b2440;
+  --ink: #e8edfa;
+  --muted: #9fb0d6;
+  --accent: #ffab40;
+  --accent2: #42a5f5;
+  --good: #00e676;
+  --line: #26324f;
+  --radius: 12px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+}
+
+/* Top bar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; background: linear-gradient(90deg, #17203a, #101728);
+  border-bottom: 1px solid var(--line);
+}
+.brand { font-size: 20px; letter-spacing: .3px; }
+.brand .tag {
+  font-size: 12px; color: var(--muted); background: #0e1526;
+  padding: 2px 8px; border-radius: 999px; margin-left: 6px; border: 1px solid var(--line);
+}
+.top-actions { display: flex; gap: 8px; }
+
+/* Layout */
+.layout { flex: 1; display: flex; min-height: 0; }
+.panel {
+  width: 320px; flex-shrink: 0; background: var(--panel);
+  border-right: 1px solid var(--line); overflow-y: auto; padding: 14px;
+}
+.group { margin-bottom: 18px; }
+.group h3 {
+  margin: 0 0 10px; font-size: 13px; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--accent);
+}
+
+/* Levels */
+.levels { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.level-btn {
+  background: var(--panel2); border: 1px solid var(--line); color: var(--ink);
+  border-radius: var(--radius); padding: 10px 8px; cursor: pointer; text-align: left;
+  font-size: 13px; line-height: 1.25; transition: transform .08s, border-color .1s;
+}
+.level-btn:hover { transform: translateY(-2px); border-color: var(--accent2); }
+.level-btn.active { border-color: var(--accent); background: #2a2338; }
+.lv-title { font-weight: 600; }
+
+/* Transport buttons */
+.transport { display: flex; gap: 8px; }
+.big {
+  flex: 1; padding: 12px 6px; font-size: 15px; font-weight: 700; cursor: pointer;
+  border-radius: var(--radius); border: 1px solid var(--line);
+  background: var(--panel2); color: var(--ink); transition: transform .06s, background .1s;
+}
+.big:hover { transform: translateY(-1px); }
+.big:active { transform: translateY(1px); }
+.big.play { background: linear-gradient(180deg, #00c853, #00a844); border-color: #00e676; color: #04210f; }
+.big.on { background: var(--accent); color: #241800; border-color: var(--accent); }
+
+/* Sliders */
+.slider { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.slider span { color: var(--ink); font-weight: 700; float: right; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+
+/* Tools */
+.tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+.tool, .toggle {
+  background: var(--panel2); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 10px; padding: 9px 6px; cursor: pointer; font-size: 13px; transition: border-color .1s, background .1s;
+}
+.tool:hover, .toggle:hover { border-color: var(--accent2); }
+.tool.active { border-color: var(--accent); background: #2a2338; }
+.toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.toggle.on { border-color: var(--good); background: #10321f; color: #b9f6ca; }
+
+.ghost {
+  background: transparent; border: 1px solid var(--line); color: var(--muted);
+  border-radius: 10px; padding: 8px 12px; cursor: pointer; font-size: 13px;
+}
+.ghost:hover { color: var(--ink); border-color: var(--accent2); }
+.ghost.wide { width: 100%; margin-top: 4px; }
+.hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+.hint b { color: var(--ink); }
+
+/* Stage */
+.stage-area { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 12px; }
+.stage-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.stage-head .lv { font-size: 18px; font-weight: 700; }
+.stage-head .lv-blurb { font-size: 13px; color: var(--muted); }
+.stage-wrap {
+  flex: 1; background: #060a14; border: 1px solid var(--line);
+  border-radius: var(--radius); overflow: hidden; position: relative; min-height: 0;
+}
+#stage { display: block; width: 100%; height: 100%; touch-action: none; }
+.stage-wrap:fullscreen { border-radius: 0; }
+
+/* Modal */
+.modal {
+  position: fixed; inset: 0; background: rgba(4,8,18,.75); display: none;
+  align-items: center; justify-content: center; z-index: 50; padding: 20px;
+}
+.modal.show { display: flex; }
+.modal-box {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  max-width: 640px; max-height: 88vh; overflow-y: auto; padding: 26px 30px; position: relative;
+}
+.modal-box h2 { margin-top: 0; }
+.modal-box h3 { color: var(--accent); margin-bottom: 6px; }
+.modal-box p, .modal-box li { color: var(--muted); line-height: 1.5; }
+.modal-box b { color: var(--ink); }
+.modal-close {
+  position: absolute; top: 12px; right: 14px; background: transparent; border: none;
+  color: var(--muted); font-size: 20px; cursor: pointer;
+}
+.modal-box .big.play { margin-top: 14px; width: 100%; }
+
+/* Scrollbar */
+.panel::-webkit-scrollbar, .modal-box::-webkit-scrollbar { width: 10px; }
+.panel::-webkit-scrollbar-thumb, .modal-box::-webkit-scrollbar-thumb { background: #24304e; border-radius: 8px; }
+
+/* Tablets & phones (incl. iPad portrait): stack the panel on top of the stage */
+@media (max-width: 900px) {
+  .layout { flex-direction: column; }
+  .panel { width: 100%; max-height: 42vh; border-right: none; border-bottom: 1px solid var(--line); }
+  .stage-area { min-height: 52vh; }
+  /* bigger tap targets for little fingers */
+  .big, .tool, .toggle, .level-btn, .ghost { padding-top: 12px; padding-bottom: 12px; }
+}
+
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🟠 <b>Marble Lab</b> <span class="tag">physics playground</span></div>
+    <div class="top-actions">
+      <button id="helpBtn" class="ghost">❓ How to use</button>
+      <button id="fs" class="ghost">⛶ Fullscreen</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- LEFT: controls -->
+    <aside class="panel">
+      <section class="group">
+        <h3>1 · Pick a level</h3>
+        <div id="levels" class="levels"></div>
+      </section>
+
+      <section class="group">
+        <h3>2 · Play</h3>
+        <div class="transport">
+          <button id="play" class="big play">▶ Play</button>
+          <button id="pause" class="big">⏸ Pause</button>
+          <button id="reset" class="big">↻ Reset</button>
+        </div>
+        <p class="hint">Tip: press <b>Space</b> to start, <b>R</b> to reset.</p>
+      </section>
+
+      <section class="group">
+        <h3>3 · Tune the physics 🔬</h3>
+        <label class="slider">Gravity <span id="gravityVal"></span>
+          <input id="gravity" type="range" min="200" max="4000" step="50" value="2000" />
+        </label>
+        <label class="slider">Bounciness <span id="bounceVal"></span>
+          <input id="bounce" type="range" min="0" max="0.95" step="0.05" value="0.4" />
+        </label>
+        <label class="slider">Friction (grip) <span id="frictionVal"></span>
+          <input id="friction" type="range" min="0" max="1" step="0.05" value="0.2" />
+        </label>
+        <label class="slider">Speed <span id="speedVal"></span>
+          <input id="speed" type="range" min="0.25" max="2" step="0.05" value="1" />
+        </label>
+        <label class="slider" id="lavaRow">Lava speed <span id="lavaVal"></span>
+          <input id="lava" type="range" min="5" max="80" step="1" value="22" />
+        </label>
+      </section>
+
+      <section class="group">
+        <h3>4 · Build your own 🛠️</h3>
+        <div class="tools">
+          <button id="tool-none" class="tool active" title="Just play, no building">👆 Select</button>
+          <button id="tool-wall" class="tool" title="Drag to draw a wall">➖ Wall</button>
+          <button id="tool-ramp" class="tool" title="Drag to draw a ramp">📐 Ramp</button>
+          <button id="tool-spinner" class="tool" title="Drag to make a spinning bar">🌀 Spinner</button>
+          <button id="tool-marble" class="tool" title="Click to drop a marble">⚪ Marble</button>
+          <button id="tool-finish" class="tool" title="Drag to draw the finish line">🏁 Finish</button>
+          <button id="tool-lava" class="tool" title="Turn rising lava on/off">🌋 Lava</button>
+          <button id="tool-erase" class="tool" title="Click to erase">🧽 Erase</button>
+        </div>
+        <button id="clearAll" class="ghost wide">🗑️ Clear everything</button>
+        <p class="hint">Drag on the play area to draw. Your build survives Reset ↻.</p>
+      </section>
+
+      <section class="group">
+        <h3>5 · Look & feel 🎬</h3>
+        <div class="toggles">
+          <button id="tTrails" class="toggle on">✨ Trails</button>
+          <button id="tNames" class="toggle on">🏷️ Names</button>
+          <button id="tBoard" class="toggle on">🏆 Leaderboard</button>
+          <button id="tMute" class="toggle">🔇 Mute</button>
+        </div>
+      </section>
+    </aside>
+
+    <!-- RIGHT: stage -->
+    <section class="stage-area">
+      <div class="stage-head">
+        <span id="levelTitle" class="lv">Marble Lab</span>
+        <span id="blurb" class="lv-blurb"></span>
+      </div>
+      <div id="stageWrap" class="stage-wrap">
+        <canvas id="stage"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <!-- HELP -->
+  <div id="help" class="modal">
+    <div class="modal-box">
+      <button id="helpClose" class="modal-close">✖</button>
+      <h2>🟠 Welcome to Marble Lab!</h2>
+      <p>This is a physics playground inspired by the YouTuber <b>MIKAN</b>, who makes
+      marble-race and survival videos. Marbles can't drive themselves — they only move
+      because of <b>gravity</b>, <b>bouncing</b>, and <b>friction</b>, just like real life.</p>
+
+      <h3>Quick start</h3>
+      <ol>
+        <li><b>Pick a level</b> on the left.</li>
+        <li>Press <b>▶ Play</b> (or the Space bar). Watch the 3-2-1 countdown, then GO!</li>
+        <li>Press <b>↻ Reset</b> to run it again — physics is a little different every time.</li>
+      </ol>
+
+      <h3>The three game modes</h3>
+      <ul>
+        <li>🏁 <b>Race</b> — first marble across the green finish line wins.</li>
+        <li>🌋 <b>Survival</b> — lava rises from the bottom; the last marble alive wins.</li>
+        <li>🏆 <b>Elimination</b> — every few seconds the marble in last place is out.</li>
+      </ul>
+
+      <h3>Be a scientist 🔬</h3>
+      <p>Use the sliders to run experiments. Make a prediction first!
+      <i>“If I turn gravity down, will the marbles bounce higher or lower? Will the race take longer?”</i>
+      Then test it. Try bounciness at 0 vs 0.9, or friction at 0 (ice!) vs 1 (sticky).</p>
+
+      <h3>Build your own 🛠️</h3>
+      <p>Pick a build tool, then <b>drag</b> on the play area to draw walls, ramps,
+      spinners and the finish line, or <b>click</b> to drop marbles or toggle lava.
+      Use <b>Erase</b> to remove one thing, or <b>Clear everything</b> to start blank.</p>
+
+      <h3>Make a video like MIKAN 🎥</h3>
+      <ol>
+        <li>Press <b>⛶ Fullscreen</b> for a clean, big picture.</li>
+        <li>Turn on <b>Trails</b> and <b>Leaderboard</b> for that satisfying look.</li>
+        <li>Screen-record your computer:
+          <b>Windows</b> = Win+G (Game Bar), <b>Mac</b> = Shift+Cmd+5.</li>
+        <li>Press Play, let the marbles race, and stop recording at the winner banner!</li>
+      </ol>
+      <button id="helpClose2" class="big play" onclick="document.getElementById('help').classList.remove('show')">Let's go! 🚀</button>
+    </div>
+  </div>
+
+  <script>
+/* ===== js/physics.js ===== */
+/* ============================================================================
+ * physics.js  —  A tiny, self-contained 2D physics engine for marble worlds.
+ *
+ * This is the "Algodoo" part of the app: gravity, bouncing, rolling, friction
+ * and collisions. It has NO external dependencies so the whole simulator runs
+ * from a single folder with no internet.
+ *
+ * The two things that exist in the world:
+ *   • Marbles  — round balls that MOVE (dynamic circles).
+ *   • Walls    — straight line segments that DON'T move (static/kinematic).
+ *
+ * Everything MIKAN builds (ramps, funnels, boxes, spinners, crushers, lava
+ * floors) is made out of these two ingredients. Keeping it that simple is what
+ * makes the engine small enough for a curious kid to read.
+ * ==========================================================================*/
+
+(function (global) {
+  'use strict';
+
+  /* ----------------------------- 2D Vectors ------------------------------ */
+  const V = {
+    add: (a, b) => ({ x: a.x + b.x, y: a.y + b.y }),
+    sub: (a, b) => ({ x: a.x - b.x, y: a.y - b.y }),
+    mul: (a, s) => ({ x: a.x * s, y: a.y * s }),
+    dot: (a, b) => a.x * b.x + a.y * b.y,
+    len: (a) => Math.hypot(a.x, a.y),
+    norm: (a) => {
+      const l = Math.hypot(a.x, a.y) || 1;
+      return { x: a.x / l, y: a.y / l };
+    },
+    // perpendicular (rotate 90°)
+    perp: (a) => ({ x: -a.y, y: a.x }),
+    dist: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+  };
+
+  /* ------------------------------ Marble --------------------------------- */
+  // A dynamic circle. This is the only thing that moves under gravity.
+  class Marble {
+    constructor(opts) {
+      this.type = 'marble';
+      this.pos = { x: opts.x, y: opts.y };
+      this.vel = { x: opts.vx || 0, y: opts.vy || 0 };
+      this.r = opts.r || 12;
+      this.mass = Math.PI * this.r * this.r * 0.001; // area-based mass
+      this.invMass = 1 / this.mass;
+      this.restitution = opts.restitution != null ? opts.restitution : 0.35; // bounciness
+      this.friction = opts.friction != null ? opts.friction : 0.25;
+      this.angle = 0;      // visual spin
+      this.angVel = 0;     // visual spin speed
+
+      // Identity / gameplay
+      this.color = opts.color || '#ff5252';
+      this.name = opts.name || 'Marble';
+      this.team = opts.team || null;
+      this.alive = true;
+      this.finished = false;
+      this.rank = 0;       // finishing place (race) or elimination order
+      this.score = 0;
+      this.trail = [];     // recent positions for the glowing tracer
+    }
+  }
+
+  /* ------------------------------- Wall ---------------------------------- */
+  // A line segment from a→b. Static by default. If it has a pivot + spin it
+  // becomes KINEMATIC (rotates forever, pushing marbles — spinners/paddles).
+  // If it has moveAxis it slides back and forth (crushers / moving platforms).
+  class Wall {
+    constructor(opts) {
+      this.type = 'wall';
+      this.a = { x: opts.ax, y: opts.ay };
+      this.b = { x: opts.bx, y: opts.by };
+      this.thickness = opts.thickness || 6;
+      this.restitution = opts.restitution != null ? opts.restitution : 0.3;
+      this.friction = opts.friction != null ? opts.friction : 0.3;
+      this.color = opts.color || '#3a4a6b';
+      this.deadly = !!opts.deadly;   // touching it eliminates the marble
+      this.tag = opts.tag || null;   // e.g. 'finish' for the finish line
+
+      // Kinematic motion (optional)
+      this.pivot = opts.pivot || null;        // {x,y} to rotate around
+      this.spin = opts.spin || 0;             // radians / second
+      this.moveAxis = opts.moveAxis || null;  // {x,y} unit direction to slide along
+      this.moveDist = opts.moveDist || 0;     // half travel distance
+      this.moveSpeed = opts.moveSpeed || 0;   // cycles-ish speed
+      this._phase = 0;
+
+      // remember the "home" endpoints so kinematic motion is reproducible
+      this._a0 = { x: this.a.x, y: this.a.y };
+      this._b0 = { x: this.b.x, y: this.b.y };
+    }
+
+    get moving() {
+      return (this.pivot && this.spin) || (this.moveAxis && this.moveSpeed);
+    }
+
+    // Advance a kinematic wall and return the velocity of a point p on it.
+    step(dt) {
+      if (this.pivot && this.spin) {
+        const rot = this.spin * dt;
+        this.a = rotateAround(this.a, this.pivot, rot);
+        this.b = rotateAround(this.b, this.pivot, rot);
+      }
+      if (this.moveAxis && this.moveSpeed) {
+        this._phase += this.moveSpeed * dt;
+        const off = Math.sin(this._phase) * this.moveDist;
+        this.a = { x: this._a0.x + this.moveAxis.x * off, y: this._a0.y + this.moveAxis.y * off };
+        this.b = { x: this._b0.x + this.moveAxis.x * off, y: this._b0.y + this.moveAxis.y * off };
+      }
+    }
+
+    // Velocity of the material point at world position p (for momentum transfer).
+    velocityAt(p) {
+      let v = { x: 0, y: 0 };
+      if (this.pivot && this.spin) {
+        const r = V.sub(p, this.pivot);
+        v = V.add(v, { x: -this.spin * r.y, y: this.spin * r.x });
+      }
+      if (this.moveAxis && this.moveSpeed) {
+        const dphase = this.moveSpeed;
+        const dOff = Math.cos(this._phase) * this.moveDist * dphase;
+        v = V.add(v, { x: this.moveAxis.x * dOff, y: this.moveAxis.y * dOff });
+      }
+      return v;
+    }
+  }
+
+  function rotateAround(p, c, ang) {
+    const s = Math.sin(ang), co = Math.cos(ang);
+    const dx = p.x - c.x, dy = p.y - c.y;
+    return { x: c.x + dx * co - dy * s, y: c.y + dx * s + dy * co };
+  }
+
+  // Closest point on segment a-b to point p.
+  function closestOnSegment(p, a, b) {
+    const ab = V.sub(b, a);
+    const t = Math.max(0, Math.min(1, V.dot(V.sub(p, a), ab) / (V.dot(ab, ab) || 1)));
+    return { x: a.x + ab.x * t, y: a.y + ab.y * t };
+  }
+
+  /* ------------------------------- World --------------------------------- */
+  class World {
+    constructor() {
+      this.marbles = [];
+      this.walls = [];
+      this.gravity = { x: 0, y: 2000 }; // pixels / second^2
+      this.bounds = { x: 0, y: 0, w: 960, h: 720 };
+      this.timeScale = 1;
+      this.onEliminate = null; // callback(marble, cause)
+      this.onFinish = null;    // callback(marble)
+      this.deadlyBelow = null; // y value: any marble whose bottom passes it dies (lava)
+    }
+
+    add(obj) {
+      if (obj.type === 'marble') this.marbles.push(obj);
+      else this.walls.push(obj);
+      return obj;
+    }
+
+    clearWalls() { this.walls = []; }
+    clearMarbles() { this.marbles = []; }
+
+    // Fixed-timestep stepping keeps the simulation stable and identical across
+    // fast and slow computers (important when recording videos).
+    step(dt) {
+      const scaled = dt * this.timeScale;
+      const h = 1 / 240;                 // physics sub-step
+      let remaining = scaled;
+      let guard = 0;
+      while (remaining > 1e-6 && guard < 40) {
+        const step = Math.min(h, remaining);
+        this.substep(step);
+        remaining -= step;
+        guard++;
+      }
+    }
+
+    substep(h) {
+      // 1. Move kinematic walls (spinners, crushers).
+      for (const w of this.walls) if (w.moving) w.step(h);
+
+      // 2. Integrate marbles (gravity + velocity).
+      for (const m of this.marbles) {
+        if (!m.alive || m.finished) continue;
+        m.vel.x += this.gravity.x * h;
+        m.vel.y += this.gravity.y * h;
+        m.pos.x += m.vel.x * h;
+        m.pos.y += m.vel.y * h;
+        m.angle += m.angVel * h;
+      }
+
+      // 3. Resolve collisions (a few iterations = stable stacking/rolling).
+      for (let iter = 0; iter < 4; iter++) {
+        this.collideMarblesWithWalls();
+        this.collideMarblesWithMarbles();
+      }
+
+      // 4. Hazards & world limits.
+      this.applyHazards();
+    }
+
+    collideMarblesWithWalls() {
+      for (const m of this.marbles) {
+        if (!m.alive || m.finished) continue;
+        for (const w of this.walls) {
+          const cp = closestOnSegment(m.pos, w.a, w.b);
+          const d = V.sub(m.pos, cp);
+          let dist = V.len(d);
+          const minDist = m.r + w.thickness * 0.5;
+          if (dist < minDist) {
+            // Deadly / tagged walls fire gameplay events instead of bouncing.
+            if (w.deadly) { this.eliminate(m, 'hazard'); break; }
+            if (w.tag === 'finish') { this.finish(m); break; }
+
+            const n = dist > 1e-6 ? V.mul(d, 1 / dist) : { x: 0, y: -1 };
+            const pen = minDist - dist;
+            // Positional correction (push marble out of the wall).
+            m.pos.x += n.x * pen;
+            m.pos.y += n.y * pen;
+
+            // Impulse resolution with restitution + friction.
+            const surfV = w.moving ? w.velocityAt(cp) : { x: 0, y: 0 };
+            const rv = V.sub(m.vel, surfV);
+            const vn = V.dot(rv, n);
+            if (vn < 0) {
+              const e = Math.min(m.restitution, w.restitution);
+              const jn = -(1 + e) * vn;
+              m.vel.x += n.x * jn;
+              m.vel.y += n.y * jn;
+
+              // Friction along the tangent.
+              const t = V.perp(n);
+              const vt = V.dot(rv, t);
+              const mu = (m.friction + w.friction) * 0.5;
+              let jt = -vt;
+              const maxJt = mu * Math.abs(jn);
+              jt = Math.max(-maxJt, Math.min(maxJt, jt));
+              m.vel.x += t.x * jt;
+              m.vel.y += t.y * jt;
+
+              // Visual rolling: spin follows tangential speed.
+              m.angVel = -vt / m.r;
+            }
+          }
+        }
+      }
+    }
+
+    collideMarblesWithMarbles() {
+      const arr = this.marbles;
+      for (let i = 0; i < arr.length; i++) {
+        const a = arr[i];
+        if (!a.alive || a.finished) continue;
+        for (let j = i + 1; j < arr.length; j++) {
+          const b = arr[j];
+          if (!b.alive || b.finished) continue;
+          const d = V.sub(b.pos, a.pos);
+          const dist = V.len(d);
+          const minDist = a.r + b.r;
+          if (dist < minDist && dist > 1e-6) {
+            const n = V.mul(d, 1 / dist);
+            const pen = minDist - dist;
+            const totalInv = a.invMass + b.invMass;
+            // Push apart proportional to inverse mass.
+            a.pos.x -= n.x * pen * (a.invMass / totalInv);
+            a.pos.y -= n.y * pen * (a.invMass / totalInv);
+            b.pos.x += n.x * pen * (b.invMass / totalInv);
+            b.pos.y += n.y * pen * (b.invMass / totalInv);
+
+            const rv = V.sub(b.vel, a.vel);
+            const vn = V.dot(rv, n);
+            if (vn < 0) {
+              const e = Math.min(a.restitution, b.restitution);
+              const jn = -(1 + e) * vn / totalInv;
+              a.vel.x -= n.x * jn * a.invMass;
+              a.vel.y -= n.y * jn * a.invMass;
+              b.vel.x += n.x * jn * b.invMass;
+              b.vel.y += n.y * jn * b.invMass;
+            }
+          }
+        }
+      }
+    }
+
+    applyHazards() {
+      for (const m of this.marbles) {
+        if (!m.alive || m.finished) continue;
+        // Rising lava (deadlyBelow is a y-line; higher on screen = smaller y).
+        if (this.deadlyBelow != null && m.pos.y + m.r >= this.deadlyBelow) {
+          this.eliminate(m, 'lava');
+          continue;
+        }
+        // Fell out of the world.
+        if (m.pos.y - m.r > this.bounds.y + this.bounds.h + 200) {
+          this.eliminate(m, 'fell');
+        }
+      }
+    }
+
+    eliminate(m, cause) {
+      if (!m.alive) return;
+      m.alive = false;
+      m.deathCause = cause;
+      if (this.onEliminate) this.onEliminate(m, cause);
+    }
+
+    finish(m) {
+      if (m.finished || !m.alive) return;
+      m.finished = true;
+      if (this.onFinish) this.onFinish(m);
+    }
+
+    aliveMarbles() { return this.marbles.filter((m) => m.alive && !m.finished); }
+  }
+
+  /* ------------------------------ Exports -------------------------------- */
+  global.MZ = global.MZ || {};
+  global.MZ.V = V;
+  global.MZ.Marble = Marble;
+  global.MZ.Wall = Wall;
+  global.MZ.World = World;
+  global.MZ.util = { closestOnSegment, rotateAround };
+})(window);
+
+
+/* ===== js/content.js ===== */
+/* ============================================================================
+ * content.js  —  The fun stuff: marble colors/names, easy "building blocks"
+ * for making tracks, and the ready-made LEVELS (presets).
+ *
+ * A LEVEL is just a small recipe. It says:
+ *   • which game mode to play (race / survival / elimination)
+ *   • how gravity/bounce feel
+ *   • what walls & hazards to build
+ *   • where the marbles start
+ *
+ * Kids can copy any recipe below and change the numbers to invent new levels.
+ * ==========================================================================*/
+
+(function (global) {
+  'use strict';
+  const MZ = global.MZ;
+  const { Marble, Wall } = MZ;
+
+  // A cheerful, high-contrast palette (great on camera, col-blind friendly-ish).
+  const COLORS = [
+    '#ff5252', '#ffb300', '#ffee58', '#66bb6a', '#26c6da',
+    '#42a5f5', '#7e57c2', '#ec407a', '#8d6e63', '#ff7043',
+    '#9ccc65', '#26a69a', '#5c6bc0', '#ab47bc', '#d4e157',
+    '#29b6f6',
+  ];
+  const NAMES = [
+    'Red', 'Amber', 'Sunny', 'Leaf', 'Aqua', 'Sky', 'Grape', 'Rosie',
+    'Cocoa', 'Ember', 'Lime', 'Teal', 'Indigo', 'Plum', 'Zest', 'Cyan',
+  ];
+
+  /* ---------------------- Building blocks (helpers) ---------------------- */
+  // Everything is made from line-segment walls, so a builder makes life easy.
+  const Build = {
+    // a single straight wall
+    line(scene, ax, ay, bx, by, opts = {}) {
+      scene.walls.push(new Wall({ ax, ay, bx, by, ...opts }));
+    },
+    // a rectangle made of 4 walls (a box or a solid platform)
+    box(scene, x, y, w, h, opts = {}) {
+      Build.line(scene, x, y, x + w, y, opts);
+      Build.line(scene, x + w, y, x + w, y + h, opts);
+      Build.line(scene, x + w, y + h, x, y + h, opts);
+      Build.line(scene, x, y + h, x, y, opts);
+    },
+    // outer arena walls (left, right, floor) so marbles stay on screen
+    arena(scene, w, h, opts = {}) {
+      Build.line(scene, 4, -400, 4, h, opts);          // left
+      Build.line(scene, w - 4, -400, w - 4, h, opts);  // right
+    },
+    // a row of alternating diagonal ramps (a zig-zag "plinko"-ish descent)
+    zigzag(scene, x, y, w, rows, gap, opts = {}) {
+      for (let i = 0; i < rows; i++) {
+        const yy = y + i * gap;
+        if (i % 2 === 0) Build.line(scene, x, yy, x + w * 0.8, yy + gap * 0.55, opts);
+        else Build.line(scene, x + w, yy, x + w * 0.2, yy + gap * 0.55, opts);
+      }
+    },
+    // a funnel that gathers marbles toward the middle
+    funnel(scene, x, y, w, drop, mouth, opts = {}) {
+      Build.line(scene, x, y, x + (w - mouth) / 2, y + drop, opts);
+      Build.line(scene, x + w, y, x + (w + mouth) / 2, y + drop, opts);
+    },
+    // scatter round pegs (static) — bouncy obstacles like a pachinko board
+    pegs(scene, x, y, w, cols, rows, gap, opts = {}) {
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const off = r % 2 ? gap / 2 : 0;
+          const px = x + off + c * gap;
+          const py = y + r * gap;
+          // a "peg" is a tiny 8-sided ring of short walls approximating a circle
+          Build.dot(scene, px, py, 10, opts);
+        }
+      }
+    },
+    // a small circular bumper approximated by a polygon of short walls
+    dot(scene, cx, cy, r, opts = {}) {
+      const sides = 8;
+      for (let i = 0; i < sides; i++) {
+        const a1 = (i / sides) * Math.PI * 2;
+        const a2 = ((i + 1) / sides) * Math.PI * 2;
+        Build.line(scene,
+          cx + Math.cos(a1) * r, cy + Math.sin(a1) * r,
+          cx + Math.cos(a2) * r, cy + Math.sin(a2) * r,
+          { restitution: 0.7, ...opts });
+      }
+    },
+  };
+
+  // Spawn N marbles in a tidy row near the top.
+  function spawnMarbles(scene, n, x, y, spread, opts = {}) {
+    for (let i = 0; i < n; i++) {
+      const col = COLORS[i % COLORS.length];
+      scene.marbles.push(new Marble({
+        x: x + (i - (n - 1) / 2) * spread,
+        y: y + (i % 2) * 6,
+        r: opts.r || 13,
+        color: col,
+        name: NAMES[i % NAMES.length] + (i >= NAMES.length ? ' ' + (i + 1) : ''),
+        team: opts.teams ? (i % opts.teams) : null,
+        restitution: opts.restitution != null ? opts.restitution : 0.35,
+        // Low friction on purpose: our engine fakes rolling, so a bit of
+        // "slipperiness" makes marbles accelerate down ramps like real ones.
+        friction: opts.friction != null ? opts.friction : 0.05,
+      }));
+    }
+  }
+
+  /* ------------------------------ LEVELS --------------------------------- */
+  // Each level returns a fresh scene object every time it is loaded, so
+  // resetting always rebuilds cleanly.
+  const W = 960, H = 720;
+
+  const PRESETS = [
+    {
+      id: 'downhill',
+      title: '⛰️ Downhill Dash',
+      mode: 'race',
+      blurb: 'A classic marble race. First marble to the finish line wins!',
+      build() {
+        const s = { walls: [], marbles: [], gravity: { x: 0, y: 2000 } };
+        Build.arena(s, W, H, { color: '#2a3556' });
+        // a slalom of ramps (steeper + low friction so marbles really zoom)
+        let y = 90;
+        const ramps = [
+          [40, y, 820, y + 190], [W - 40, y + 250, 140, y + 430],
+          [40, y + 470, 820, y + 560], [W - 40, y + 600, 220, y + 660],
+        ];
+        for (const r of ramps) Build.line(s, r[0], r[1], r[2], r[3], { color: '#3f6ad8', restitution: 0.15, friction: 0.03 });
+        Build.pegs(s, 250, 330, 5, 4, 3, 90);
+        // finish line at the bottom
+        Build.line(s, 4, H - 40, W - 4, H - 40, { tag: 'finish', color: '#00e676', thickness: 10 });
+        spawnMarbles(s, 8, W / 2, 40, 34);
+        return s;
+      },
+    },
+    {
+      id: 'lava',
+      title: '🌋 Escape the Rising Lava',
+      mode: 'survival',
+      blurb: 'Lava rises from the bottom. Bounce, dodge, and survive the longest!',
+      lava: { start: H - 20, rise: 26 }, // pixels per second upward
+      build() {
+        const s = { walls: [], marbles: [], gravity: { x: 0, y: 1600 } };
+        Build.arena(s, W, H, { color: '#5a2a2a' });
+        // staggered rescue ledges to climb the chaos on
+        const ledges = [
+          [80, 560, 360, 560], [600, 500, 880, 500],
+          [140, 420, 420, 420], [560, 360, 860, 360],
+          [80, 260, 380, 260], [600, 220, 900, 220],
+        ];
+        for (const l of ledges) Build.line(s, l[0], l[1], l[2], l[3], { color: '#a5673f', restitution: 0.4, friction: 0.1 });
+        // a slow spinner to stir things up
+        s.walls.push(new MZ.Wall({ ax: 380, ay: 640, bx: 580, by: 640, pivot: { x: 480, y: 640 }, spin: 1.4, color: '#ffca28' }));
+        spawnMarbles(s, 10, W / 2, 60, 40, { restitution: 0.5 });
+        return s;
+      },
+    },
+    {
+      id: 'elim',
+      title: '🏁 Elimination Tower',
+      mode: 'elimination',
+      blurb: 'Every few seconds the marble in last place is out. Who survives to the end?',
+      elimination: { interval: 3.0, progress: 'down' },
+      build() {
+        const s = { walls: [], marbles: [], gravity: { x: 0, y: 1800 } };
+        Build.arena(s, W, H, { color: '#26324f' });
+        // a tall descending maze of funnels
+        for (let i = 0; i < 4; i++) {
+          const y = 120 + i * 150;
+          Build.funnel(s, 120, y, 720, 90, 120, { color: '#4a5ea8', restitution: 0.3, friction: 0.04 });
+        }
+        Build.zigzag(s, 120, 150, 720, 6, 90, { color: '#5c76c9', friction: 0.04 });
+        spawnMarbles(s, 12, W / 2, 50, 30);
+        return s;
+      },
+    },
+    {
+      id: 'teams',
+      title: '🔴🔵 Team Battle',
+      mode: 'survival',
+      blurb: 'Two teams, rising lava, last team standing wins. Cheer for your color!',
+      lava: { start: H - 20, rise: 22 },
+      teams: 2,
+      build() {
+        const s = { walls: [], marbles: [], gravity: { x: 0, y: 1600 } };
+        Build.arena(s, W, H, { color: '#2f2a4a' });
+        Build.pegs(s, 160, 200, 7, 5, 4, 110);
+        const ledges = [[60, 520, 300, 520], [660, 520, 900, 520], [340, 360, 620, 360]];
+        for (const l of ledges) Build.line(s, l[0], l[1], l[2], l[3], { color: '#7a6bbf', restitution: 0.45 });
+        // teams: alternate colors are forced to two team colors in the renderer
+        spawnMarbles(s, 10, W / 2, 60, 44, { teams: 2, restitution: 0.5 });
+        // recolor by team so it reads clearly on camera
+        s.marbles.forEach((m) => { m.color = m.team === 0 ? '#ff5252' : '#42a5f5'; });
+        return s;
+      },
+    },
+    {
+      id: 'spinners',
+      title: '🌀 Spinner Chaos',
+      mode: 'survival',
+      blurb: 'Deadly spinning blades! Do not get flung into the walls of doom.',
+      lava: { start: H - 20, rise: 14 },
+      build() {
+        const s = { walls: [], marbles: [], gravity: { x: 0, y: 1500 } };
+        Build.arena(s, W, H, { color: '#3a2f2f' });
+        const spinners = [
+          [240, 250, 1.8], [720, 300, -2.1], [480, 470, 2.4], [300, 560, -1.6],
+        ];
+        for (const sp of spinners) {
+          s.walls.push(new MZ.Wall({
+            ax: sp[0] - 90, ay: sp[1], bx: sp[0] + 90, by: sp[1],
+            pivot: { x: sp[0], y: sp[1] }, spin: sp[2], color: '#ff7043',
+          }));
+        }
+        Build.line(s, 60, 150, 380, 150, { color: '#8d5a3a' });
+        Build.line(s, 580, 180, 900, 180, { color: '#8d5a3a' });
+        spawnMarbles(s, 9, W / 2, 60, 40, { restitution: 0.4 });
+        return s;
+      },
+    },
+    {
+      id: 'pachinko',
+      title: '🎰 Pachinko Drop',
+      mode: 'race',
+      blurb: 'Rain down through a field of bouncy pegs. Pure lucky chaos!',
+      build() {
+        const s = { walls: [], marbles: [], gravity: { x: 0, y: 1700 } };
+        Build.arena(s, W, H, { color: '#243b2f' });
+        Build.pegs(s, 120, 120, 8, 8, 70);
+        Build.pegs(s, 155, 155, 7, 7, 70);
+        // catch bins with a finish line
+        for (let x = 120; x < W - 80; x += 110) Build.line(s, x, H - 200, x, H - 40, { color: '#3a7d5a' });
+        Build.line(s, 4, H - 30, W - 4, H - 30, { tag: 'finish', color: '#00e676', thickness: 10 });
+        spawnMarbles(s, 10, W / 2, 40, 22);
+        return s;
+      },
+    },
+  ];
+
+  MZ.content = { COLORS, NAMES, Build, spawnMarbles, PRESETS, W, H };
+})(window);
+
+
+/* ===== js/game.js ===== */
+/* ============================================================================
+ * game.js  —  The referee. Loads a level into the physics World and runs the
+ * rules for each mode: countdown → play → someone wins.
+ *
+ * Modes:
+ *   race        first marble across the finish line wins (others get ranked).
+ *   survival    rising lava / hazards; the last marble alive wins.
+ *   elimination every few seconds the marble in last place is removed.
+ * ==========================================================================*/
+
+(function (global) {
+  'use strict';
+  const MZ = global.MZ;
+
+  class Game {
+    constructor(world) {
+      this.world = world;
+      this.level = null;
+      this.mode = 'race';
+      this.state = 'idle';   // idle | countdown | running | finished
+      this.time = 0;         // seconds since GO
+      this.countdown = 0;
+      this.winner = null;
+      this.winnerTeam = null;
+      this.results = [];      // finishing / elimination order (worst→best pushed)
+      this.eliminatedOrder = [];
+      this._elimTimer = 0;
+      this.onEvent = null;    // callback(type, payload) for UI/sound/confetti
+
+      world.onEliminate = (m, cause) => this._handleEliminate(m, cause);
+      world.onFinish = (m) => this._handleFinish(m);
+    }
+
+    load(level, overrides = {}) {
+      const scene = level.build();
+      const w = this.world;
+      w.clearWalls();
+      w.clearMarbles();
+      scene.walls.forEach((x) => w.add(x));
+      scene.marbles.forEach((x) => w.add(x));
+      w.gravity = { ...scene.gravity };
+      w.deadlyBelow = null;
+
+      // apply user slider overrides
+      if (overrides.gravity != null) w.gravity.y = overrides.gravity;
+      if (overrides.bounce != null) w.marbles.forEach((m) => (m.restitution = overrides.bounce));
+      if (overrides.friction != null) w.marbles.forEach((m) => (m.friction = overrides.friction));
+
+      this.level = level;
+      this.mode = level.mode;
+      this.lavaCfg = level.lava ? { ...level.lava } : null;
+      if (overrides.lavaRise != null && this.lavaCfg) this.lavaCfg.rise = overrides.lavaRise;
+      this.elimCfg = level.elimination ? { ...level.elimination } : { interval: 3, progress: 'down' };
+
+      this.state = 'idle';
+      this.time = 0;
+      this.winner = null;
+      this.winnerTeam = null;
+      this.results = [];
+      this.eliminatedOrder = [];
+      this._elimTimer = 0;
+      this.lavaLevel = this.lavaCfg ? this.lavaCfg.start : null;
+      this._startTotal = w.marbles.length;
+    }
+
+    start() {
+      if (!this.level) return;
+      this.state = 'countdown';
+      this.countdown = 3.0;
+      this._emit('countdown', 3);
+    }
+
+    reset() {
+      if (this.level) this.load(this.level, this._overrides || {});
+    }
+
+    setOverrides(o) { this._overrides = o; }
+
+    _emit(type, payload) { if (this.onEvent) this.onEvent(type, payload); }
+
+    update(dt) {
+      if (this.state === 'countdown') {
+        const prev = Math.ceil(this.countdown);
+        this.countdown -= dt;
+        const now = Math.ceil(this.countdown);
+        if (now !== prev && now >= 1) this._emit('countdown', now);
+        if (this.countdown <= 0) {
+          this.state = 'running';
+          this._emit('go');
+        }
+        return; // marbles held at the gate until GO
+      }
+
+      if (this.state !== 'running') return;
+
+      this.time += dt;
+      this.world.step(dt);
+
+      if (this.mode === 'survival') this._updateSurvival(dt);
+      if (this.mode === 'elimination') this._updateElimination(dt);
+
+      this._checkWin();
+    }
+
+    _updateSurvival(dt) {
+      if (this.lavaCfg) {
+        this.lavaLevel -= this.lavaCfg.rise * dt; // rises = y decreases
+        this.world.deadlyBelow = this.lavaLevel;
+      }
+    }
+
+    _updateElimination(dt) {
+      this._elimTimer += dt;
+      if (this._elimTimer >= this.elimCfg.interval) {
+        this._elimTimer = 0;
+        const alive = this.world.aliveMarbles();
+        if (alive.length > 1) {
+          const loser = this._lastPlace(alive);
+          if (loser) {
+            this._emit('warn', loser);
+            this.world.eliminate(loser, 'eliminated');
+          }
+        }
+      }
+    }
+
+    // "Last place" depends on the level's progress direction.
+    _lastPlace(alive) {
+      const p = this.elimCfg.progress;
+      let worst = alive[0];
+      for (const m of alive) {
+        if (p === 'down' && m.pos.y < worst.pos.y) worst = m;      // highest = least progress
+        else if (p === 'right' && m.pos.x < worst.pos.x) worst = m;
+        else if (p === 'score' && m.score < worst.score) worst = m;
+      }
+      return worst;
+    }
+
+    _handleEliminate(m, cause) {
+      this.eliminatedOrder.push(m);
+      m.rank = this._startTotal - this.eliminatedOrder.length + 1; // 1 = best
+      this._emit('eliminate', { marble: m, cause });
+    }
+
+    _handleFinish(m) {
+      if (this.results.includes(m)) return;
+      this.results.push(m);
+      m.rank = this.results.length; // 1st, 2nd, ...
+      this._emit('finish', { marble: m, place: m.rank });
+      if (this.mode === 'race' && m.rank === 1) {
+        this.winner = m;
+        this._emit('firstFinish', m);
+      }
+    }
+
+    _checkWin() {
+      if (this.state !== 'running') return;
+
+      if (this.mode === 'race') {
+        // Race ends when everybody has finished or fallen out.
+        const active = this.world.marbles.filter((m) => m.alive && !m.finished);
+        if (active.length === 0) this._finish(this.winner || this.results[0] || null);
+        return;
+      }
+
+      // survival + elimination: last marble (or last team) standing.
+      const alive = this.world.aliveMarbles();
+      if (this.level && this.level.teams) {
+        const teams = new Set(alive.map((m) => m.team));
+        if (teams.size <= 1) {
+          this.winnerTeam = teams.size === 1 ? [...teams][0] : null;
+          this._finish(alive[0] || null);
+        }
+      } else if (alive.length <= 1) {
+        const w = alive[0] || null;
+        if (w) w.rank = 1;
+        this._finish(w);
+      }
+    }
+
+    _finish(winner) {
+      if (this.state === 'finished') return;
+      this.state = 'finished';
+      this.winner = winner || this.winner;
+      this._emit('win', { winner: this.winner, team: this.winnerTeam });
+    }
+
+    // A live leaderboard the UI can render.
+    leaderboard() {
+      const rows = this.world.marbles.map((m) => ({
+        name: m.name,
+        color: m.color,
+        team: m.team,
+        alive: m.alive && !m.finished,
+        finished: m.finished,
+        rank: m.rank,
+        // progress metric shown as a bar
+        progress: m.finished ? 1 : Math.max(0, Math.min(1, m.pos.y / (MZ.content.H))),
+      }));
+      // sort: finishers by rank, then alive by progress, then eliminated last
+      rows.sort((a, b) => {
+        const av = a.finished ? -1000 + a.rank : (a.alive ? -a.progress : 1000 + (a.rank || 999));
+        const bv = b.finished ? -1000 + b.rank : (b.alive ? -b.progress : 1000 + (b.rank || 999));
+        return av - bv;
+      });
+      return rows;
+    }
+  }
+
+  MZ.Game = Game;
+})(window);
+
+
+/* ===== js/render.js ===== */
+/* ============================================================================
+ * render.js  —  Draws the world on the <canvas> with the "MIKAN" look:
+ * glowing marble tracers, neon lava, spinning blades, a live leaderboard,
+ * a big countdown, and a winner banner with confetti.
+ * ==========================================================================*/
+
+(function (global) {
+  'use strict';
+  const MZ = global.MZ;
+  const W = MZ.content.W, H = MZ.content.H;
+
+  class Renderer {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.ctx = canvas.getContext('2d');
+      this.scale = 1;
+      this.ox = 0; this.oy = 0;
+      this.confetti = [];
+      this.showTrails = true;
+      this.showNames = true;
+      this.showBoard = true;
+      this.resize();
+    }
+
+    resize() {
+      const parent = this.canvas.parentElement;
+      const cw = parent.clientWidth;
+      const ch = parent.clientHeight;
+      const dpr = Math.min(global.devicePixelRatio || 1, 2);
+      this.canvas.width = cw * dpr;
+      this.canvas.height = ch * dpr;
+      this.canvas.style.width = cw + 'px';
+      this.canvas.style.height = ch + 'px';
+      // fit the 960x720 world into the canvas, centered (letterboxed)
+      const s = Math.min(cw / W, ch / H);
+      this.scale = s * dpr;
+      this.ox = (cw - W * s) / 2 * dpr;
+      this.oy = (ch - H * s) / 2 * dpr;
+    }
+
+    // convert a screen (mouse) point to world coordinates — used by the editor
+    toWorld(sx, sy) {
+      const rect = this.canvas.getBoundingClientRect();
+      const dpr = this.canvas.width / rect.width;
+      const px = (sx - rect.left) * dpr;
+      const py = (sy - rect.top) * dpr;
+      return { x: (px - this.ox) / this.scale, y: (py - this.oy) / this.scale };
+    }
+
+    draw(game) {
+      const ctx = this.ctx;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+      // backdrop
+      const bg = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+      bg.addColorStop(0, '#0d1220');
+      bg.addColorStop(1, '#141b30');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+      ctx.setTransform(this.scale, 0, 0, this.scale, this.ox, this.oy);
+
+      // play-area frame
+      ctx.fillStyle = '#0a0f1c';
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = '#243154';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(0, 0, W, H);
+
+      const world = game.world;
+
+      // lava (survival)
+      if (world.deadlyBelow != null) this._drawLava(ctx, world.deadlyBelow, game.time);
+
+      // walls
+      for (const wl of world.walls) this._drawWall(ctx, wl);
+
+      // trails then marbles
+      if (this.showTrails) for (const m of world.marbles) this._drawTrail(ctx, m);
+      for (const m of world.marbles) this._drawMarble(ctx, m);
+
+      // overlays (drawn in screen space)
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (this.showBoard) this._drawBoard(ctx, game);
+      this._drawBanner(ctx, game);
+      this._drawConfetti(ctx);
+    }
+
+    _drawLava(ctx, level, t) {
+      const wob = Math.sin(t * 4) * 4;
+      const grad = ctx.createLinearGradient(0, level, 0, H);
+      grad.addColorStop(0, '#ff8a3d');
+      grad.addColorStop(0.4, '#ff5722');
+      grad.addColorStop(1, '#b71c1c');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(0, level + wob);
+      for (let x = 0; x <= W; x += 24) {
+        ctx.lineTo(x, level + Math.sin(x * 0.04 + t * 5) * 6);
+      }
+      ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#ffd180';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 24) {
+        const y = level + Math.sin(x * 0.04 + t * 5) * 6;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    _drawWall(ctx, w) {
+      ctx.lineCap = 'round';
+      ctx.lineWidth = w.thickness;
+      if (w.deadly) {
+        ctx.strokeStyle = '#ff1744';
+        ctx.shadowColor = '#ff1744';
+        ctx.shadowBlur = 10;
+      } else if (w.tag === 'finish') {
+        // checkered finish line
+        ctx.strokeStyle = '#00e676';
+        ctx.shadowColor = '#00e676';
+        ctx.shadowBlur = 8;
+      } else {
+        ctx.strokeStyle = w.color || '#3a4a6b';
+        ctx.shadowBlur = 0;
+      }
+      ctx.beginPath();
+      ctx.moveTo(w.a.x, w.a.y);
+      ctx.lineTo(w.b.x, w.b.y);
+      ctx.stroke();
+      // hub for spinners
+      if (w.pivot && w.spin) {
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(w.pivot.x, w.pivot.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    _drawTrail(ctx, m) {
+      if (m.trail.length < 2) return;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = m.color;
+      ctx.shadowColor = m.color;
+      for (let i = 1; i < m.trail.length; i++) {
+        const p0 = m.trail[i - 1], p1 = m.trail[i];
+        const a = i / m.trail.length;
+        ctx.globalAlpha = a * (m.alive ? 0.55 : 0.15);
+        ctx.shadowBlur = 12 * a;
+        ctx.lineWidth = m.r * 1.4 * a;
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+    }
+
+    _drawMarble(ctx, m) {
+      if (!m.alive && !m.finished) {
+        // fading "poof" for eliminated marbles handled via trail only
+        return;
+      }
+      // glossy ball
+      const g = ctx.createRadialGradient(
+        m.pos.x - m.r * 0.35, m.pos.y - m.r * 0.35, m.r * 0.1,
+        m.pos.x, m.pos.y, m.r);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.25, m.color);
+      g.addColorStop(1, shade(m.color, -0.35));
+      ctx.fillStyle = g;
+      ctx.shadowColor = m.color;
+      ctx.shadowBlur = m.finished ? 4 : 10;
+      ctx.beginPath();
+      ctx.arc(m.pos.x, m.pos.y, m.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // spin marker so rolling is visible
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(m.pos.x, m.pos.y);
+      ctx.lineTo(m.pos.x + Math.cos(m.angle) * m.r * 0.8, m.pos.y + Math.sin(m.angle) * m.r * 0.8);
+      ctx.stroke();
+
+      if (this.showNames) {
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.font = '600 11px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(m.name, m.pos.x, m.pos.y - m.r - 4);
+      }
+    }
+
+    _drawBoard(ctx, game) {
+      const rows = game.leaderboard();
+      const x = 12, y = 12, w = 190;
+      const rh = 22;
+      const h = 34 + rows.length * rh;
+      roundRect(ctx, x, y, w, h, 10);
+      ctx.fillStyle = 'rgba(10,15,28,0.78)';
+      ctx.fill();
+      ctx.fillStyle = '#cdd6f0';
+      ctx.font = '700 13px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      const modeLabel = { race: 'RACE', survival: 'SURVIVAL', elimination: 'ELIMINATION' }[game.mode] || '';
+      ctx.fillText('🏆 ' + modeLabel, x + 12, y + 22);
+      rows.forEach((r, i) => {
+        const ry = y + 34 + i * rh;
+        ctx.fillStyle = r.color;
+        ctx.globalAlpha = r.alive || r.finished ? 1 : 0.35;
+        ctx.beginPath();
+        ctx.arc(x + 20, ry + 8, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = r.alive || r.finished ? '#e8edfa' : '#7a88a0';
+        ctx.font = '500 12px system-ui, sans-serif';
+        let label = r.name;
+        if (r.finished) label += '  #' + r.rank;
+        else if (!r.alive) label += '  ✖';
+        ctx.fillText(label, x + 34, ry + 12);
+        ctx.globalAlpha = 1;
+      });
+    }
+
+    _drawBanner(ctx, game) {
+      const cw = this.canvas.width, ch = this.canvas.height;
+      ctx.textAlign = 'center';
+      if (game.state === 'countdown') {
+        const n = Math.ceil(game.countdown);
+        const frac = n - game.countdown; // 0→1 within the second
+        const scale = 1 + (1 - frac) * 0.8;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, 1.2 - frac);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `800 ${Math.round(120 * scale * (this.scale / (this.scale)))}px system-ui, sans-serif`;
+        ctx.shadowColor = '#42a5f5';
+        ctx.shadowBlur = 30;
+        ctx.fillText(n > 0 ? String(n) : 'GO!', cw / 2, ch / 2);
+        ctx.restore();
+      } else if (game.state === 'running' && game.time < 0.6) {
+        ctx.save();
+        ctx.globalAlpha = 1 - game.time / 0.6;
+        ctx.fillStyle = '#69f0ae';
+        ctx.font = '800 96px system-ui, sans-serif';
+        ctx.fillText('GO!', cw / 2, ch / 2);
+        ctx.restore();
+      } else if (game.state === 'finished') {
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(0, ch / 2 - 90, cw, 180);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '800 42px system-ui, sans-serif';
+        let txt = 'Winner!';
+        if (game.winnerTeam != null) txt = (game.winnerTeam === 0 ? '🔴 Red Team' : '🔵 Blue Team') + ' Wins!';
+        else if (game.winner) txt = '🏆 ' + game.winner.name + ' Wins!';
+        else txt = 'Game Over';
+        ctx.fillStyle = game.winner ? game.winner.color : '#ffffff';
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.shadowBlur = 24;
+        ctx.fillText(txt, cw / 2, ch / 2 + 6);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#cdd6f0';
+        ctx.font = '500 18px system-ui, sans-serif';
+        ctx.fillText('Press Reset ↻ to play again', cw / 2, ch / 2 + 48);
+        ctx.restore();
+      }
+    }
+
+    burstConfetti(color) {
+      for (let i = 0; i < 90; i++) {
+        this.confetti.push({
+          x: this.canvas.width / 2, y: this.canvas.height / 2,
+          vx: (Math.sin(i) - Math.cos(i * 1.3)) * (2 + (i % 7)),
+          vy: -6 - (i % 9),
+          life: 1,
+          c: i % 3 === 0 ? color : ['#ffd54f', '#4fc3f7', '#ff8a80', '#b9f6ca'][i % 4],
+          s: 4 + (i % 5),
+        });
+      }
+    }
+
+    _drawConfetti(ctx) {
+      for (const p of this.confetti) {
+        p.vy += 0.28;
+        p.x += p.vx; p.y += p.vy;
+        p.life -= 0.008;
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.c;
+        ctx.fillRect(p.x, p.y, p.s, p.s);
+      }
+      ctx.globalAlpha = 1;
+      this.confetti = this.confetti.filter((p) => p.life > 0 && p.y < this.canvas.height + 40);
+    }
+  }
+
+  function shade(hex, amt) {
+    const c = hexToRgb(hex);
+    const f = amt < 0 ? 0 : 255;
+    const p = Math.abs(amt);
+    const r = Math.round((f - c.r) * p + c.r);
+    const g = Math.round((f - c.g) * p + c.g);
+    const b = Math.round((f - c.b) * p + c.b);
+    return `rgb(${r},${g},${b})`;
+  }
+  function hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  MZ.Renderer = Renderer;
+})(window);
+
+
+/* ===== js/editor.js ===== */
+/* ============================================================================
+ * editor.js  —  The "build your own" tools. Pick a tool, then click or drag on
+ * the play area to add walls, ramps, marbles, spinners, a finish line, or lava.
+ *
+ * Anything you build is snapshotted into the current level, so pressing Reset ↻
+ * replays YOUR creation from the start instead of throwing it away.
+ * ==========================================================================*/
+
+(function (global) {
+  'use strict';
+  const MZ = global.MZ;
+  const { Wall, Marble } = MZ;
+  const COLORS = MZ.content.COLORS;
+
+  class Editor {
+    constructor(game, renderer) {
+      this.game = game;
+      this.renderer = renderer;
+      this.world = game.world;
+      this.tool = 'none';      // none | wall | ramp | spinner | marble | finish | lava | erase
+      this.dragStart = null;
+      this.preview = null;
+      this.spawnIndex = 0;
+      this._bind();
+    }
+
+    setTool(t) { this.tool = t; this.dragStart = null; this.preview = null; }
+
+    _bind() {
+      const c = this.renderer.canvas;
+      c.addEventListener('pointerdown', (e) => this._down(e));
+      c.addEventListener('pointermove', (e) => this._move(e));
+      c.addEventListener('pointerup', (e) => this._up(e));
+      c.addEventListener('pointerleave', () => { this.dragStart = null; this.preview = null; });
+    }
+
+    _down(e) {
+      if (this.tool === 'none') return;
+      const p = this.renderer.toWorld(e.clientX, e.clientY);
+      if (this.tool === 'marble') { this._addMarble(p); this._snapshot(); return; }
+      if (this.tool === 'lava') { this._toggleLava(); this._snapshot(); return; }
+      if (this.tool === 'erase') { this._erase(p); this._snapshot(); return; }
+      // drag tools
+      this.dragStart = p;
+    }
+
+    _move(e) {
+      if (!this.dragStart) return;
+      this.preview = this.renderer.toWorld(e.clientX, e.clientY);
+    }
+
+    _up(e) {
+      if (!this.dragStart) return;
+      const p = this.renderer.toWorld(e.clientX, e.clientY);
+      const a = this.dragStart, b = p;
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len > 10) {
+        if (this.tool === 'wall' || this.tool === 'ramp') {
+          this.world.add(new Wall({ ax: a.x, ay: a.y, bx: b.x, by: b.y, color: '#4a5ea8', restitution: 0.3 }));
+        } else if (this.tool === 'spinner') {
+          const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+          this.world.add(new Wall({ ax: a.x, ay: a.y, bx: b.x, by: b.y, pivot: mid, spin: 2.0, color: '#ff7043' }));
+        } else if (this.tool === 'finish') {
+          this.world.add(new Wall({ ax: a.x, ay: a.y, bx: b.x, by: b.y, tag: 'finish', color: '#00e676', thickness: 10 }));
+        }
+        this._snapshot();
+      }
+      this.dragStart = null;
+      this.preview = null;
+    }
+
+    _addMarble(p) {
+      const col = COLORS[this.spawnIndex % COLORS.length];
+      this.world.add(new Marble({
+        x: p.x, y: p.y, r: 13, color: col,
+        name: MZ.content.NAMES[this.spawnIndex % MZ.content.NAMES.length],
+        restitution: 0.4, friction: 0.2,
+      }));
+      this.spawnIndex++;
+    }
+
+    _toggleLava() {
+      if (this.world.deadlyBelow == null) {
+        this.game.lavaCfg = { start: MZ.content.H - 20, rise: 22 };
+        this.game.lavaLevel = this.game.lavaCfg.start;
+        this.world.deadlyBelow = this.game.lavaLevel;
+        this.game.mode = 'survival';
+      } else {
+        this.world.deadlyBelow = null;
+        this.game.lavaCfg = null;
+      }
+    }
+
+    _erase(p) {
+      // remove nearest marble or wall within reach
+      let best = null, bestD = 28, kind = null;
+      this.world.marbles.forEach((m, i) => {
+        const d = Math.hypot(m.pos.x - p.x, m.pos.y - p.y);
+        if (d < bestD) { bestD = d; best = i; kind = 'm'; }
+      });
+      this.world.walls.forEach((w, i) => {
+        const cp = MZ.util.closestOnSegment(p, w.a, w.b);
+        const d = Math.hypot(cp.x - p.x, cp.y - p.y);
+        if (d < bestD) { bestD = d; best = i; kind = 'w'; }
+      });
+      if (best != null) {
+        if (kind === 'm') this.world.marbles.splice(best, 1);
+        else this.world.walls.splice(best, 1);
+      }
+    }
+
+    // Freeze the current world into a replayable level so Reset keeps edits.
+    _snapshot() {
+      const walls = this.world.walls.map(serializeWall);
+      const marbles = this.world.marbles.map(serializeMarble);
+      const gravity = { ...this.world.gravity };
+      const mode = this.game.mode;
+      const lava = this.game.lavaCfg ? { ...this.game.lavaCfg } : null;
+      const teams = this.game.level && this.game.level.teams;
+      this.game.level = {
+        id: 'custom',
+        title: '✏️ My Creation',
+        mode, lava, teams,
+        elimination: this.game.elimCfg,
+        build() {
+          return {
+            gravity: { ...gravity },
+            walls: walls.map((w) => new Wall(w)),
+            marbles: marbles.map((m) => Object.assign(new Marble(m), { color: m.color, name: m.name, team: m.team })),
+          };
+        },
+      };
+      if (this.onChange) this.onChange(this.game.level);
+    }
+  }
+
+  function serializeWall(w) {
+    return {
+      ax: w._a0.x, ay: w._a0.y, bx: w._b0.x, by: w._b0.y,
+      thickness: w.thickness, restitution: w.restitution, friction: w.friction,
+      color: w.color, deadly: w.deadly, tag: w.tag,
+      pivot: w.pivot ? { ...w.pivot } : null, spin: w.spin,
+      moveAxis: w.moveAxis ? { ...w.moveAxis } : null, moveDist: w.moveDist, moveSpeed: w.moveSpeed,
+    };
+  }
+  function serializeMarble(m) {
+    return {
+      x: m.pos.x, y: m.pos.y, r: m.r, color: m.color, name: m.name, team: m.team,
+      restitution: m.restitution, friction: m.friction,
+    };
+  }
+
+  MZ.Editor = Editor;
+})(window);
+
+
+/* ===== js/app.js ===== */
+/* ============================================================================
+ * app.js  —  Ties everything together: builds the UI, runs the animation loop,
+ * updates the glowing trails, plays little sounds, and connects every button.
+ * ==========================================================================*/
+
+(function (global) {
+  'use strict';
+  const MZ = global.MZ;
+
+  /* ------------------------------- Sound --------------------------------- */
+  // Tiny built-in beeps (no audio files needed). Can be muted.
+  const Sound = {
+    ctx: null, muted: false,
+    _ac() { if (!this.ctx) this.ctx = new (global.AudioContext || global.webkitAudioContext)(); return this.ctx; },
+    blip(freq, dur = 0.08, type = 'sine', vol = 0.2) {
+      if (this.muted) return;
+      try {
+        const ac = this._ac();
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = type; o.frequency.value = freq;
+        g.gain.value = vol;
+        o.connect(g); g.connect(ac.destination);
+        const t = ac.currentTime;
+        g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        o.start(t); o.stop(t + dur);
+      } catch (e) { /* audio not allowed yet */ }
+    },
+    fanfare() {
+      [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.blip(f, 0.18, 'triangle', 0.25), i * 120));
+    },
+  };
+
+  /* ------------------------------- Setup --------------------------------- */
+  const canvas = document.getElementById('stage');
+  const renderer = new MZ.Renderer(canvas);
+  const world = new MZ.World();
+  const game = new MZ.Game(world);
+  const editor = new MZ.Editor(game, renderer);
+  editor.onChange = (level) => {
+    document.getElementById('levelTitle').textContent = level.title;
+    document.getElementById('blurb').textContent = 'Your own creation — press ▶ Play!';
+    updateLavaControl();
+  };
+
+  const overrides = { gravity: null, bounce: null, friction: null, lavaRise: null };
+  game.setOverrides(overrides);
+
+  let running = false;    // is the animation loop stepping physics?
+  let paused = false;
+
+  /* --------------------------- Game events ------------------------------- */
+  game.onEvent = (type, payload) => {
+    if (type === 'countdown') Sound.blip(440 + (3 - payload) * 120, 0.1, 'square', 0.18);
+    else if (type === 'go') Sound.blip(880, 0.2, 'square', 0.22);
+    else if (type === 'eliminate') Sound.blip(140, 0.18, 'sawtooth', 0.18);
+    else if (type === 'finish') Sound.blip(660, 0.12, 'sine', 0.2);
+    else if (type === 'win') {
+      Sound.fanfare();
+      renderer.burstConfetti(payload.winner ? payload.winner.color : '#ffd54f');
+    }
+  };
+
+  /* ---------------------------- Main loop -------------------------------- */
+  let last = performance.now();
+  function loop(now) {
+    let dt = (now - last) / 1000;
+    last = now;
+    dt = Math.min(dt, 1 / 30); // clamp big gaps (tab switches)
+
+    if (running && !paused) {
+      game.update(dt);
+      // update glowing trails
+      if (game.state === 'running') {
+        for (const m of world.marbles) {
+          if (m.alive || m.finished) {
+            m.trail.push({ x: m.pos.x, y: m.pos.y });
+            if (m.trail.length > 20) m.trail.shift();
+          }
+        }
+      }
+    }
+    renderer.draw(game);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  /* ----------------------------- Controls -------------------------------- */
+  const $ = (id) => document.getElementById(id);
+
+  function loadLevel(level) {
+    // Reset overrides so each level plays with its OWN authored physics.
+    // A slider only takes over once the kid actually moves it.
+    overrides.gravity = overrides.bounce = overrides.friction = overrides.lavaRise = null;
+    game.load(level, overrides);
+    world.timeScale = parseFloat($('speed').value);
+    running = true; paused = false;   // loop renders; physics waits for GO
+    // physics won't move until start() → countdown → running
+    syncSlidersToLevel();
+    updateLavaControl();
+    $('levelTitle').textContent = level.title;
+    $('blurb').textContent = level.blurb || 'Build something and press Play!';
+  }
+
+  // Make the sliders show this level's real numbers (so what the kid sees is true).
+  function setSlider(id, val) {
+    const el = $(id); if (!el) return;
+    el.value = val;
+    const out = $(id + 'Val'); if (out) out.textContent = el.value;
+  }
+  function syncSlidersToLevel() {
+    setSlider('gravity', Math.round(world.gravity.y));
+    const m = world.marbles[0];
+    if (m) { setSlider('bounce', m.restitution); setSlider('friction', m.friction); }
+    if (game.lavaCfg) setSlider('lava', game.lavaCfg.rise);
+  }
+
+  function startRun() {
+    // resume audio on first user gesture
+    try { Sound._ac().resume(); } catch (e) {}
+    if (game.state === 'finished' || game.state === 'idle') game.reset();
+    editor.setTool('none');
+    highlightTool('none');
+    game.start();
+    paused = false;
+    running = true;
+  }
+
+  // build the level buttons
+  const levelWrap = $('levels');
+  MZ.content.PRESETS.forEach((lv, i) => {
+    const b = document.createElement('button');
+    b.className = 'level-btn';
+    b.innerHTML = `<span class="lv-title">${lv.title}</span>`;
+    b.onclick = () => {
+      [...levelWrap.children].forEach((c) => c.classList.remove('active'));
+      b.classList.add('active');
+      loadLevel(lv);
+    };
+    levelWrap.appendChild(b);
+    if (i === 0) b.classList.add('active');
+  });
+
+  // transport
+  $('play').onclick = startRun;
+  $('pause').onclick = () => {
+    if (game.state === 'running' || game.state === 'countdown') {
+      paused = !paused;
+      $('pause').classList.toggle('on', paused);
+    }
+  };
+  $('reset').onclick = () => {
+    game.reset();
+    world.timeScale = parseFloat($('speed').value);
+    paused = false;
+    $('pause').classList.remove('on');
+  };
+
+  // sliders — only change physics when the kid actually drags them, so they
+  // never silently clobber a level's authored feel on load.
+  function bindSlider(id, apply) {
+    const el = $(id);
+    const out = $(id + 'Val');
+    el.addEventListener('input', () => {
+      if (out) out.textContent = el.value;
+      apply(parseFloat(el.value));
+    });
+    if (out) out.textContent = el.value; // show initial number only
+  }
+  bindSlider('gravity', (v) => { overrides.gravity = v; world.gravity.y = v; });
+  bindSlider('bounce', (v) => { overrides.bounce = v; world.marbles.forEach((m) => (m.restitution = v)); });
+  bindSlider('friction', (v) => { overrides.friction = v; world.marbles.forEach((m) => (m.friction = v)); });
+  bindSlider('speed', (v) => { world.timeScale = v; });
+  bindSlider('lava', (v) => { overrides.lavaRise = v; if (game.lavaCfg) game.lavaCfg.rise = v; });
+
+  // toggles
+  $('tTrails').onclick = () => toggle('tTrails', (on) => (renderer.showTrails = on));
+  $('tNames').onclick = () => toggle('tNames', (on) => (renderer.showNames = on));
+  $('tBoard').onclick = () => toggle('tBoard', (on) => (renderer.showBoard = on));
+  $('tMute').onclick = () => toggle('tMute', (on) => (Sound.muted = on));
+  function toggle(id, apply) {
+    const el = $(id);
+    el.classList.toggle('on');
+    apply(el.classList.contains('on'));
+  }
+
+  // build tools
+  const tools = ['none', 'wall', 'ramp', 'spinner', 'marble', 'finish', 'lava', 'erase'];
+  tools.forEach((t) => {
+    const el = $('tool-' + t);
+    if (el) el.onclick = () => { editor.setTool(t); highlightTool(t); };
+  });
+  function highlightTool(t) {
+    tools.forEach((x) => { const el = $('tool-' + x); if (el) el.classList.toggle('active', x === t); });
+    canvas.style.cursor = t === 'none' ? 'default' : 'crosshair';
+  }
+  $('clearAll').onclick = () => {
+    world.clearWalls(); world.clearMarbles();
+    game.lavaCfg = null; world.deadlyBelow = null;
+    editor._snapshot();
+  };
+
+  // fullscreen for clean recording
+  $('fs').onclick = () => {
+    const stageWrap = document.getElementById('stageWrap');
+    if (!document.fullscreenElement) stageWrap.requestFullscreen && stageWrap.requestFullscreen();
+    else document.exitFullscreen && document.exitFullscreen();
+  };
+
+  // help modal
+  $('helpBtn').onclick = () => $('help').classList.add('show');
+  $('help').onclick = (e) => { if (e.target.id === 'help' || e.target.id === 'helpClose') $('help').classList.remove('show'); };
+
+  function updateLavaControl() {
+    const isSurv = game.mode === 'survival';
+    $('lavaRow').style.display = isSurv || game.lavaCfg ? 'flex' : 'none';
+    if (game.lavaCfg) { $('lava').value = game.lavaCfg.rise; $('lavaVal').textContent = game.lavaCfg.rise; }
+  }
+
+  global.addEventListener('resize', () => renderer.resize());
+  document.addEventListener('fullscreenchange', () => setTimeout(() => renderer.resize(), 50));
+
+  // keyboard shortcuts
+  global.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.code === 'Space') { e.preventDefault(); startRun(); }
+    else if (e.key === 'r' || e.key === 'R') $('reset').click();
+    else if (e.key === 'p' || e.key === 'P') $('pause').click();
+  });
+
+  // boot with the first level
+  loadLevel(MZ.content.PRESETS[0]);
+})(window);
+
+</script>
+</body>
+</html>
