@@ -84,6 +84,19 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .toggle.on { border-color: var(--good); background: #10321f; color: #b9f6ca; }
 
+/* Marble color picker */
+.color-row { margin-top: 10px; }
+.color-label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch {
+  width: 26px; height: 26px; padding: 0; border-radius: 50%;
+  border: 2px solid var(--line); cursor: pointer; transition: transform .06s;
+}
+.swatch:hover { transform: scale(1.12); }
+.swatch.sel { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
+.swatch.auto { background: var(--panel2); font-size: 14px; line-height: 1; }
+.swatch.custom { width: 30px; height: 30px; background: none; }
+
 .ghost {
   background: transparent; border: 1px solid var(--line); color: var(--muted);
   border-radius: 10px; padding: 8px 12px; cursor: pointer; font-size: 13px;

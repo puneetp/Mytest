@@ -194,6 +194,39 @@
     tools.forEach((x) => { const el = $('tool-' + x); if (el) el.classList.toggle('active', x === t); });
     canvas.style.cursor = t === 'none' ? 'default' : 'crosshair';
   }
+
+  // marble color picker: 🎲 rainbow (auto) + one swatch per palette color + a
+  // custom "any color" input. Picking one also switches to the Marble tool.
+  const swatches = $('marbleColors');
+  function selectMarbleColor(color, el) {
+    editor.marbleColor = color; // null = rainbow
+    [...swatches.querySelectorAll('.swatch')].forEach((c) => c.classList.remove('sel'));
+    if (el) el.classList.add('sel');
+    editor.setTool('marble');
+    highlightTool('marble');
+  }
+  const rainbow = document.createElement('button');
+  rainbow.className = 'swatch auto sel';
+  rainbow.textContent = '🎲';
+  rainbow.title = 'Rainbow — a different color for each marble';
+  rainbow.onclick = () => selectMarbleColor(null, rainbow);
+  swatches.appendChild(rainbow);
+  MZ.content.COLORS.forEach((c) => {
+    const b = document.createElement('button');
+    b.className = 'swatch';
+    b.style.background = c;
+    b.title = c;
+    b.onclick = () => selectMarbleColor(c, b);
+    swatches.appendChild(b);
+  });
+  const custom = document.createElement('input');
+  custom.type = 'color';
+  custom.className = 'swatch custom';
+  custom.value = '#ff5252';
+  custom.title = 'Pick any color you like';
+  custom.oninput = () => selectMarbleColor(custom.value, custom);
+  swatches.appendChild(custom);
+
   $('clearAll').onclick = () => {
     world.clearWalls(); world.clearMarbles();
     game.lavaCfg = null; world.deadlyBelow = null;

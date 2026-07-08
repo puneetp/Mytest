@@ -21,6 +21,7 @@
       this.dragStart = null;
       this.preview = null;
       this.spawnIndex = 0;
+      this.marbleColor = null; // null = rainbow (auto-pick a new color each time)
       this._bind();
     }
 
@@ -70,7 +71,8 @@
     }
 
     _addMarble(p) {
-      const col = COLORS[this.spawnIndex % COLORS.length];
+      // Use the chosen color, or auto-cycle the palette when set to "rainbow".
+      const col = this.marbleColor || COLORS[this.spawnIndex % COLORS.length];
       this.world.add(new Marble({
         x: p.x, y: p.y, r: 13, color: col,
         name: MZ.content.NAMES[this.spawnIndex % MZ.content.NAMES.length],
